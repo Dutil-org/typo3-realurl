@@ -335,8 +335,16 @@ class UrlDecoder extends EncodeDecoderBase implements SingletonInterface {
 			if ($this->detectedLanguageId > 0 && !isset($page['_PAGES_OVERLAY']) && (empty($languageExceptionUids) || !GeneralUtility::inList($languageExceptionUids, $this->detectedLanguageId))) {
 				$page = $this->pageRepository->getPageOverlay($page, (int)$this->detectedLanguageId);
 			}
+
+			$spaceCharacterhookCondition = false;
+			if (is_array($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['linkvalidator']['checkLinks'])) {
+      				foreach ($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['realurl']['spaceCharacter'] as $key => $classRef) {
+         				$spaceCharacterhookCondition = $spaceCharacterhookCondition || \TYPO3\CMS\Core\Utility\GeneralUtility::getUserObj($classRef).evaluateAdditionalUnionCondition($page[$field], $this->separatorCharacter);
+      				}
+   			}
+
 			foreach (self::$pageTitleFields as $field) {
-				if (isset($page[$field]) && $page[$field] !== '' && $this->utility->convertToSafeString($page[$field], $this->separatorCharacter) === $segment) {
+				if (isset($page[$field]) && $page[$field] !== '' && ($this->utility->convertToSafeString($page[$field], $this->separatorCharacter) === $segment || $spaceCharacterHookCondition)) {
 					$result = GeneralUtility::makeInstance('DmitryDulepov\\Realurl\\Cache\\PathCacheEntry');
 					/** @var \DmitryDulepov\Realurl\Cache\PathCacheEntry $result */
 					$result->setPageId((int)$page['uid']);
