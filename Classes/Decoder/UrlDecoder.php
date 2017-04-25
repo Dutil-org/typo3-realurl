@@ -336,15 +336,17 @@ class UrlDecoder extends EncodeDecoderBase implements SingletonInterface {
 				$page = $this->pageRepository->getPageOverlay($page, (int)$this->detectedLanguageId);
 			}
 
-			$spaceCharacterhookCondition = false;
-			if (is_array($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['linkvalidator']['checkLinks'])) {
-      				foreach ($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['realurl']['spaceCharacter'] as $key => $classRef) {
-         				$spaceCharacterhookCondition = $spaceCharacterhookCondition || \TYPO3\CMS\Core\Utility\GeneralUtility::getUserObj($classRef).evaluateAdditionalUnionCondition($page[$field], $this->separatorCharacter);
-      				}
-   			}
+			// initiate seperation character hooks
+			$seperationCharacterHooks = array();
+
+                        if (is_array($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['linkvalidator']['checkLinks'])) {
+				foreach ($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['realurl']['spaceCharacter'] as $key => $classRef) {
+					$seperationCharacterHooks[] =  \TYPO3\CMS\Core\Utility\GeneralUtility::getUserObj($classRef);
+                                }
+                        }
 
 			foreach (self::$pageTitleFields as $field) {
-				if (isset($page[$field]) && $page[$field] !== '' && ($this->utility->convertToSafeString($page[$field], $this->separatorCharacter) === $segment || $spaceCharacterHookCondition)) {
+				if (isset($page[$field]) && $page[$field] !== '' && ($this->utility->convertToSafeString($page[$field], $this->separatorCharacter) === $segment || $this->applySeperationCharacterHooks($seperationCharacterHooks, $page[$field], $segment))) {
 					$result = GeneralUtility::makeInstance('DmitryDulepov\\Realurl\\Cache\\PathCacheEntry');
 					/** @var \DmitryDulepov\Realurl\Cache\PathCacheEntry $result */
 					$result->setPageId((int)$page['uid']);
@@ -363,6 +365,7 @@ class UrlDecoder extends EncodeDecoderBase implements SingletonInterface {
 					break 2;
 				}
 			}
+
 		}
 
 		return $result;
@@ -1546,5 +1549,24 @@ class UrlDecoder extends EncodeDecoderBase implements SingletonInterface {
 		}
 
 		$this->caller->pageNotFoundAndExit($errorMessage);
+	}
+
+
+	/**
+	 * Evaluates all given sepationcharacter hooks
+	 *
+	 * @param array $hooks reference to an array consisting of all hooks
+	 */
+	protected function applySeperationCharacterHooks(&$hooks, $pageIdentifier, $segment)
+	{
+		// execute all hooks
+		foreach ($hooks as $key => $hook) {
+			$callable = array($this->utility, "convertToSafeString");
+			if($hook->evaluateAdditionalUnionCondition($pageIdentifier, $segment, $callable) === true) {
+				return true;
+			}
+	        }
+
+		return false;
 	}
 }
